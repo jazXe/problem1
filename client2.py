@@ -1,25 +1,26 @@
-# client2.py
-import socket, json
-from datetime import datetime, timezone, timedelta
-import logging
+# machine2_receiver.py
+import socket, json, logging
+from datetime import datetime, timezone
 logging.basicConfig(
-   filename='client.log',
+   filename='machine2.log',
    level=logging.INFO,
    format='%(asctime)s %(message)s',
    datefmt='%Y-%m-%dT%H:%M:%S.%fZ'
 )
-SERVER_IP = '192.168.1.100'  # NTP server IP
-SERVER_PORT = 12345
+HOST = ''
+PORT = 2000
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-# --- Add +3 seconds offset to simulate unsynced clock ---
-local_time = datetime.now(timezone.utc) + timedelta(seconds=3)
-msg = json.dumps({"request": "time", "client_time": local_time.isoformat()}).encode()
-sock.sendto(msg, (SERVER_IP, SERVER_PORT))
-data, addr = sock.recvfrom(1024)
-resp = json.loads(data.decode())
-server_time = datetime.fromisoformat(resp["server_time"])
-client_time_sent = datetime.fromisoformat(resp["client_time"])
-offset = (server_time - client_time_sent).total_seconds()
-logging.info(f"Client_time_sent={client_time_sent}, Server_time={server_time}, Offset={offset:.6f}s")
-print(f"Offset: {offset:.6f}s")
-sock.close()
+sock.bind((HOST, PORT))
+print(f"[Machine2] Listening on UDP port {PORT}...")
+while True:
+   data, addr = sock.recvfrom(1024)
+   recv_time = datetime.now(timezone.utc)
+   msg = json.loads(data.decode())
+   send_time = datetime.fromisoformat(msg['send_time'])
+   delay = (recv_time - send_time).total_seconds()
+   log_line = (
+       f"Received from {addr}: delay={delay:.6f}s, "
+       f"send_time={send_time}, recv_time={recv_time}"
+   )
+   print("[Machine2]", log_line)
+   logging.info(log_line)
